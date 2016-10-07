@@ -46,6 +46,18 @@ module MoSQL
       out = spec.dup
       out[:columns] = to_array(spec.fetch(:columns))
       check_columns!(ns, out)
+      if out[:meta][:created_at]
+        out[:columns] << {
+          :source => '_id',
+          :type   => 'TIMESTAMP',
+          :name   => 'created_at',
+          :key    => false
+        }
+      end
+      out[:related] ||= []
+      out[:related].each do |reltable, details|
+        out[:related][reltable] = to_array(details)
+      end
       out
     end
 
@@ -82,7 +94,7 @@ module MoSQL
           meta = collection[:meta]
           composite_key = meta[:composite_key]
           keys = []
-          log.info("Creating table '#{meta[:table]}'...")
+          log.info("SWANG: Creating table '#{meta[:table]}'...")
           db.send(clobber ? :create_table! : :create_table?, meta[:table]) do
             collection[:columns].each do |col|
               opts = {}
@@ -93,7 +105,7 @@ module MoSQL
 
               if composite_key and composite_key.include?(col[:name])
                 keys << col[:name].to_sym
-              elsif not composite_key and col[:source].to_sym == :_id
+              elsif not composite_key and col[:source].to_sym == :_id and col[:key] != false
                 keys << col[:name].to_sym
               end
             end
@@ -112,6 +124,13 @@ module MoSQL
               column '_extra_props', type
             end
           end
+          collection[:related].each do |reltable, details|
+            db.send(clobber ? :create_table! : :create_table?, reltable) do
+              details.each do |col|
+                column col[:name], col[:type]
+              end
+            end
+          end
         end
       end
     end
@@ -126,13 +145,19 @@ module MoSQL
     end
 
     def find_ns(ns)
-      db, collection = ns.split(".", 2)
+      db, collection, relation = ns.split(".")
       unless spec = find_db(db)
         return nil
       end
       unless schema = spec[collection]
         log.debug("No mapping for ns: #{ns}")
         return nil
+      end
+      if schema && relation
+        schema = {
+          :columns => schema[:related][relation],
+          :meta => { :table => relation }
+        }
       end
       schema
     end
@@ -144,22 +169,26 @@ module MoSQL
     end
 
     def fetch_and_delete_dotted(obj, dotted)
-      pieces = dotted.split(".")
-      breadcrumbs = []
-      while pieces.length > 1
-        key = pieces.shift
-        breadcrumbs << [obj, key]
-        obj = obj[key]
-        return nil unless obj.is_a?(Hash)
+      key, rest = dotted.split(".", 2)
+      obj ||= {}
+
+      if key.end_with?("[]")
+        values = obj[key.slice(0...-2)] || []
+        raise "Expected: Array for piece #{ key }, got #{ values.class }" unless values.is_a?(Array)
+
+        return values.map do |v|
+          if rest
+            fetch_and_delete_dotted(v, rest)
+          else
+            v
+          end
+        end
       end
 
-      val = obj.delete(pieces.first)
+      # Base case
+      return obj[key] unless rest
 
-      breadcrumbs.reverse.each do |obj, key|
-        obj.delete(key) if obj[key].empty?
-      end
-
-      val
+      fetch_and_delete_dotted(obj[key], rest)
     end
 
     def fetch_exists(obj, dotted)
@@ -188,7 +217,11 @@ module MoSQL
     def transform_primitive(v, type=nil)
       case v
       when BSON::ObjectId, Symbol
-        v.to_s
+        if [:DATE, :TIMESTAMP, :TIME].include? type.to_sym
+          Time.at(v.to_s[0...8].to_i(16)).utc
+        else
+          v.to_s
+        end
       when BSON::Binary
         if type.downcase == 'uuid'
           v.to_s.unpack("H*").first
@@ -346,7 +379,7 @@ module MoSQL
       if ns[:meta][:composite_key]
         keys = ns[:meta][:composite_key]
       else
-        keys << ns[:columns].find {|c| c[:source] == '_id'}[:name]
+        keys << ns[:columns].find {|c| c[:source] == '_id' && c[:key] != false }[:name]
       end
 
       return keys
