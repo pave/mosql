@@ -217,7 +217,7 @@ module MoSQL
     def transform_primitive(v, type=nil)
       case v
       when BSON::ObjectId, Symbol
-        if [:DATE, :TIMESTAMP, :TIME].include? type.to_sym
+        if type and [:DATE, :TIMESTAMP, :TIME].include? type.to_sym
           Time.at(v.to_s[0...8].to_i(16)).utc
         else
           v.to_s
@@ -237,6 +237,10 @@ module MoSQL
 
     def transform(ns, obj, schema=nil)
       schema ||= find_ns!(ns)
+      log.debug { "Start transform" }
+      log.debug { "Schema #{schema}" }
+      log.debug { "NS #{ns}" }
+      log.debug { "OBJ #{obj}" }
 
       original = obj
 
@@ -249,11 +253,13 @@ module MoSQL
 
         source = col[:source]
         type = col[:type]
+        log.debug { "source: #{source}, type: #{type}" }
 
         if source.start_with?("$")
           v = fetch_special_source(obj, source, original)
         else
           v = fetch_and_delete_dotted(obj, source)
+          log.debug { "value: #{v}" }
           case v
           when Hash
             v = JSON.dump(Hash[v.map { |k,v| [k, transform_primitive(v)] }])
