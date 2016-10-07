@@ -56,6 +56,7 @@ module MoSQL
       end
       out[:related] ||= []
       out[:related].each do |reltable, details|
+        log.debug {"Related schema, #{reltable}, #{details}"}
         out[:related][reltable] = to_array(details)
       end
       out
@@ -264,11 +265,16 @@ module MoSQL
           when Hash
             v = JSON.dump(Hash[v.map { |k,v| [k, transform_primitive(v)] }])
           when Array
-            v = v.map { |it| transform_primitive(it) }
-            if col[:array_type]
-              v = Sequel.pg_array(v, col[:array_type])
+            v = v.map { |it| transform_primitive(it, type) }
+            key, _ = source.split(".", 2)
+            unless key.end_with?("[]")
+              if col[:array_type]
+                v = Sequel.pg_array(v, col[:array_type])
+              else
+                v = JSON.dump(v)
+              end
             else
-              v = JSON.dump(v)
+              v
             end
           else
             v = transform_primitive(v, type)
@@ -283,8 +289,18 @@ module MoSQL
       end
 
       log.debug { "Transformed: #{row.inspect}" }
+      arrays = row.select {|r| r.is_a? Array}
+      #depth = row.select {|r| r.is_a? Array}.map {|r| r.length }.max
+      return row unless arrays.any?
+      depth = arrays[0].length
 
-      row
+      log.debug { "depth: #{depth}" }
+      # Convert row [a, [b, c], d] into [[a, b, d], [a, c, d]]
+      row.map! {|r| [r].flatten.cycle.take(depth)}
+      log.debug { "new row: #{row}" }
+      row.first.zip(*row.drop(1))
+      #log.debug { "Transformed embedded: #{row.inspect}" }
+      #row
     end
 
     def sanitize(value)

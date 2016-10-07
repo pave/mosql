@@ -168,13 +168,13 @@ module MoSQL
                                :sql     => @sql,
                                :schema  => @schema)
 
-      unless options[:skip_import]
-        @streamer.import
-      end
+      #unless options[:skip_import]
+      #  @streamer.import
+      #end
 
-      unless options[:skip_tail]
-        @streamer.optail
-      end
+      #unless options[:skip_tail]
+      #  @streamer.optail
+      #end
     end
   end
 end

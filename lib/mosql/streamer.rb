@@ -152,6 +152,7 @@ module MoSQL
             writers[] << @schema.transform(ns, obj)
             schema[:related].each do |ns_scope, _|
               @schema.transform([ns, ns_scope].join("."), obj).each do |row|
+                log.debug("Row for embedded #{row.inspect}")
                 writers[ns_scope] << row
               end
             end
