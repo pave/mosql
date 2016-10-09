@@ -60,7 +60,6 @@ module MoSQL
         out[:related] = {}
         spec[:related].each do |reltable, details|
           log.debug {"Related schema, #{reltable}, #{details}"}
-          #out[:related][reltable] = to_array(details)
           is_embed_array = reltable.end_with?("[]")
           table = reltable
           if is_embed_array
@@ -73,8 +72,12 @@ module MoSQL
           if is_embed_array
             out[:related][table][:meta][:embed_array] = true
           end
+          out[:related][table][:columns] << {
+            :source => '_id',
+            :type   => 'VARCHAR(24)',
+            :name   => ns.split('.')[-1].downcase+'_id',
+          }
         end
-        #out[:related] = parse_related(spec[:related])
       end
       out
     end
@@ -175,10 +178,6 @@ module MoSQL
       end
       if schema && relation
         schema = schema[:related][relation]
-        #schema = {
-        #  :columns => schema[:related][relation],
-        #  :meta => { :table => relation }
-        #}
       end
       schema
     end
@@ -310,7 +309,6 @@ module MoSQL
 
       log.debug { "Transformed: #{row.inspect}" }
       arrays = row.select {|r| r.is_a? Array}
-      #depth = row.select {|r| r.is_a? Array}.map {|r| r.length }.max
       return row unless arrays.any?
       depth = arrays[0].length
 
@@ -319,8 +317,6 @@ module MoSQL
       row.map! {|r| [r].flatten.cycle.take(depth)}
       log.debug { "new row: #{row}" }
       row.first.zip(*row.drop(1))
-      #log.debug { "Transformed embedded: #{row.inspect}" }
-      #row
     end
 
     def sanitize(value)

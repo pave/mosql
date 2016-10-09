@@ -172,8 +172,7 @@ module MoSQL
         @streamer.import
       end
 
-      #No idea if this will work or not
-      #After the customization, so disable here
+      #No idea if this will work or not after the customization, so disable for now
       #unless options[:skip_tail]
       #  @streamer.optail
       #end

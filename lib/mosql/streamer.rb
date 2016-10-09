@@ -2,8 +2,7 @@ module MoSQL
   class Streamer
     include MoSQL::Logging
 
-    #BATCH = 1000
-    BATCH = 10
+    BATCH = 1000
 
     attr_reader :options, :tailer
 
@@ -159,10 +158,6 @@ module MoSQL
           cursor.each do |obj|
             writers[] << @schema.transform(ns, obj)
             schema[:related].each do |ns_scope, related_schema|
-              #table = ns_scope
-              #if is_embed_array = ns_scope.end_with?("[]")
-              #  table = ns_scope.slice(0...-2)
-              #end
               log.debug("Do related row: #{ns_scope}")
               data = @schema.transform([ns, ns_scope].join("."), obj) if obj[ns_scope]
               if data
