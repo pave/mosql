@@ -137,7 +137,6 @@ module MoSQL
       sql_time = 0
 
       writers = Writers.new(schema, ns, :batch => BATCH, :flush => proc do |table_name, local_ns, queue|
-        log.debug("Starting writing: #{table_name}, #{local_ns}")
         table = @sql.table_for_ns(local_ns)
         sql_time += track_time do
           bulk_upsert(table, local_ns, queue)
@@ -158,12 +157,10 @@ module MoSQL
           cursor.each do |obj|
             writers[] << @schema.transform(ns, obj)
             schema[:related].each do |ns_scope, related_schema|
-              log.debug("Do related row: #{ns_scope}")
               data = @schema.transform([ns, ns_scope].join("."), obj) if obj[ns_scope]
               if data
                 if related_schema[:meta][:embed_array]
                   data.each do |row|
-                    log.debug("Row for embedded #{row.inspect}")
                     writers[ns_scope] << row
                   end
                 else

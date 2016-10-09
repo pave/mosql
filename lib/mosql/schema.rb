@@ -60,12 +60,10 @@ module MoSQL
         out[:related] = {}
         spec[:related].each do |reltable, details|
           log.debug {"Related schema, #{reltable}, #{details}"}
-          is_embed_array = reltable.end_with?("[]")
           table = reltable
-          if is_embed_array
+          if is_embed_array = reltable.end_with?("[]")
             table = reltable.slice(0...-2)
           end
-          log.debug {"tables, #{table}, #{reltable}"}
           out[:related][table] = parse_spec(
             [ns, table].join('.'), details, reltable)
           out[:related][table][:meta][:table] = table
@@ -98,7 +96,6 @@ module MoSQL
           next unless cname.is_a?(String)
           begin
             @map[dbname][cname] = parse_spec("#{dbname}.#{cname}", spec)
-            log.debug {"Parsed schema, #{@map[dbname][cname]}"}
           rescue KeyError => e
             raise SchemaError.new("In spec for #{dbname}.#{cname}: #{e}")
           end
@@ -147,7 +144,6 @@ module MoSQL
             end
           end
           collection[:related].each do |reltable, details|
-            log.debug("Create relatable: #{reltable}")
             db.send(clobber ? :create_table! : :create_table?, reltable) do
               details[:columns].each do |col|
                 column col[:name], col[:type]
@@ -257,10 +253,6 @@ module MoSQL
 
     def transform(ns, obj, schema=nil)
       schema ||= find_ns!(ns)
-      log.debug { "Start transform" }
-      log.debug { "Schema #{schema}" }
-      log.debug { "NS #{ns}" }
-      log.debug { "OBJ #{obj}" }
 
       original = obj
 
@@ -273,13 +265,11 @@ module MoSQL
 
         source = col[:source]
         type = col[:type]
-        log.debug { "source: #{source}, type: #{type}" }
 
         if source.start_with?("$")
           v = fetch_special_source(obj, source, original)
         else
           v = fetch_and_delete_dotted(obj, source)
-          log.debug { "value: #{v}" }
           case v
           when Hash
             v = JSON.dump(Hash[v.map { |k,v| [k, transform_primitive(v)] }])
@@ -312,10 +302,8 @@ module MoSQL
       return row unless arrays.any?
       depth = arrays[0].length
 
-      log.debug { "depth: #{depth}" }
       # Convert row [a, [b, c], d] into [[a, b, d], [a, c, d]]
       row.map! {|r| [r].flatten.cycle.take(depth)}
-      log.debug { "new row: #{row}" }
       row.first.zip(*row.drop(1))
     end
 
@@ -360,7 +348,6 @@ module MoSQL
 
     def copy_data(db, ns, objs)
       schema = find_ns!(ns)
-      log.debug("Copy data: #{ns}, #{schema}, #{objs}")
       db.synchronize do |pg|
         sql = "COPY \"#{schema[:meta][:table]}\" " +
           "(#{all_columns_for_copy(schema).map {|c| "\"#{c}\""}.join(",")}) FROM STDIN"
