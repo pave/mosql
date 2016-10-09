@@ -1,7 +1,9 @@
 # MoSQL: a MongoDB → SQL streaming translator
 
 > _**Added the feature of exporting embedded documents into their own relationship tables.**_
-> _Part of the code is manually imported from https://github.com/trello/mosql.  WARNING: Tailing has not been tested on this fork, because we don't need, so most likely it is broken here..._
+> _Part of the code is manually imported from [here][trello-mosql].  WARNING: Tailing has not been tested on this fork, because we don't need, so most likely it is broken here..._
+
+[trello-mosql]: https://github.com/trello/mosql
 
 At Stripe, we love MongoDB. We love the flexibility it gives us in
 changing data schemas as we grow and learn, and we love its
@@ -168,6 +170,54 @@ server you connect to. You avoid this behavior by specifiying a specific
 mongo db to connect to with the `--only-db [dbname]` option. This is
 useful for hosted services which do not let you list all databases (via
 the `listDatabases` command).
+
+## Export Embedded Documents to Relationship Tables
+
+In order to automatically export embedded documents to relationship tables,
+see the following example:
+
+    mongodb:
+      blog_posts:
+        :columns:
+        - id:
+          :source: _id
+          :type: TEXT
+        - author_name:
+          :source: author.name
+          :type: TEXT
+        - author_bio:
+          :source: author.bio
+          :type: TEXT
+        - title: TEXT
+        - created: DOUBLE PRECISION
+        :meta:
+          :table: blog_posts
+          :extra_props: true
+        :related:
+          blog_comments[]:
+            :columns:
+              - id:
+                :source: blog_comments[].id
+                :type: TEXT
+              - commenter:
+                :source: blog_comments[].user_id
+                :type: TEXT
+              - comment:
+                :source: blog_comments[].comment
+          post_stats:
+            :columns:
+              - view_count:
+                :source: post_stats.view_count
+                :type: INTEGER
+              - share_count:
+                :source: post_stats.share_count
+                :type: INTEGER
+      
+The field blog_comments is an array of embedded documents while
+post_stats is just a embedded document.  After exporting, two tables,
+blog_comments and post_stats will be created.  These tables will
+contain a column 'blog_posts_id', which is auto-generated, and it 
+will contain the id of the blog post.
 
 ## Schema mismatches and _extra_props
 
