@@ -44,28 +44,31 @@ pave-dev:
       :created_at: true
     :related:
       bank_account:
-        - name:
-          :source: bank_account.name
-          :type: VARCHAR(64)
-        - account_type:
-          :source: bank_account.type
-          :type: VARCHAR(64)
-        - account_status:
-          :source: bank_account_status
-          :type: INTEGER
-        - last_four:
-          :source: bank_account.last_four
-          :type: CHAR(4)
-      education:
-        - id:
-          :source: education[]._id
-          :type: VARCHAR(24)
-        - user_id:
-          :source: _id
-          :type: VARCHAR(24)
-        - area_of_study:
-          :source: education[].area_of_study
-          :type: INTEGER
-        - institution:
-          :source: education[].institution
-          :type: VARCHAR(64)
+        :columns:
+          - name:
+            :source: bank_account.name
+            :type: VARCHAR(64)
+          - account_type:
+            :source: bank_account.type
+            :type: VARCHAR(64)
+          - account_status:
+            :source: bank_account_status
+            :type: INTEGER
+          - last_four:
+            :source: bank_account.last_four
+            :type: CHAR(4)
+      education[]:
+        :columns:
+          - id:
+            :source: education[]._id
+            :type: VARCHAR(24)
+          - user_id:
+            :source: _id
+            :type: VARCHAR(24)
+          - area_of_study:
+            :source: education[].area_of_study
+            :type: INTEGER
+          - institution:
+            :source: education[].institution
+            :type: VARCHAR(128)
+        

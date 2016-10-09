@@ -43,10 +43,11 @@ module MoSQL
     end
 
     def parse_spec(ns, spec)
+      log.debug {"Parse spec, #{ns}, #{spec}"}
       out = spec.dup
       out[:columns] = to_array(spec.fetch(:columns))
       check_columns!(ns, out)
-      if out[:meta][:created_at]
+      if out[:meta] and out[:meta][:created_at]
         out[:columns] << {
           :source => '_id',
           :type   => 'TIMESTAMP',
@@ -54,10 +55,21 @@ module MoSQL
           :key    => false
         }
       end
-      out[:related] ||= []
-      out[:related].each do |reltable, details|
-        log.debug {"Related schema, #{reltable}, #{details}"}
-        out[:related][reltable] = to_array(details)
+      if spec[:related]
+        out[:related] = {}
+        spec[:related].each do |reltable, details|
+          log.debug {"Related schema, #{reltable}, #{details}"}
+          #out[:related][reltable] = to_array(details)
+          is_embed_array = reltable.end_with?("[]")
+          reltable = reltable.slice(0...-2) if is_embed_array
+          out[:related][reltable] = parse_spec([ns, reltable].join('.'), details)
+          out[:related][reltable][:meta] ||= {}
+          out[:related][reltable][:meta][:table] = reltable
+          if is_embed_array
+            out[:related][reltable][:meta][:embed_array] = true
+          end
+        end
+        #out[:related] = parse_related(spec[:related])
       end
       out
     end
@@ -78,6 +90,7 @@ module MoSQL
           next unless cname.is_a?(String)
           begin
             @map[dbname][cname] = parse_spec("#{dbname}.#{cname}", spec)
+            log.debug {"Parsed schema, #{@map[dbname][cname]}"}
           rescue KeyError => e
             raise SchemaError.new("In spec for #{dbname}.#{cname}: #{e}")
           end
@@ -126,8 +139,9 @@ module MoSQL
             end
           end
           collection[:related].each do |reltable, details|
+            log.debug("Create relatable: #{reltable}")
             db.send(clobber ? :create_table! : :create_table?, reltable) do
-              details.each do |col|
+              details[:columns].each do |col|
                 column col[:name], col[:type]
               end
             end
@@ -155,10 +169,11 @@ module MoSQL
         return nil
       end
       if schema && relation
-        schema = {
-          :columns => schema[:related][relation],
-          :meta => { :table => relation }
-        }
+        schema = schema[:related][relation]
+        #schema = {
+        #  :columns => schema[:related][relation],
+        #  :meta => { :table => relation }
+        #}
       end
       schema
     end
@@ -344,6 +359,7 @@ module MoSQL
 
     def copy_data(db, ns, objs)
       schema = find_ns!(ns)
+      log.debug("Copy data: #{ns}, #{schema}, #{objs}")
       db.synchronize do |pg|
         sql = "COPY \"#{schema[:meta][:table]}\" " +
           "(#{all_columns_for_copy(schema).map {|c| "\"#{c}\""}.join(",")}) FROM STDIN"

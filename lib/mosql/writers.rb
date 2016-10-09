@@ -9,6 +9,9 @@ module MoSQL
       add(@schema[:meta][:table])
 
       @schema[:related].each do |table, columns|
+        #if table.end_with?("[]")
+        #  table = table.slice(0...-2)
+        #end
         add(table, table)
       end
     end

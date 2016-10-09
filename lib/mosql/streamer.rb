@@ -2,7 +2,8 @@ module MoSQL
   class Streamer
     include MoSQL::Logging
 
-    BATCH = 1000
+    #BATCH = 1000
+    BATCH = 10
 
     attr_reader :options, :tailer
 
@@ -131,12 +132,13 @@ module MoSQL
 
     def import_collection(ns, collection, filter)
       log.info("Importing for #{ns}...")
+
+      schema = @schema.find_ns!(ns)
       start    = Time.now
       sql_time = 0
 
-      schema = @schema.find_ns!(ns)
-
       writers = Writers.new(schema, ns, :batch => BATCH, :flush => proc do |table_name, local_ns, queue|
+        log.debug("Starting writing: #{table_name}, #{local_ns}")
         table = @sql.table_for_ns(local_ns)
         sql_time += track_time do
           bulk_upsert(table, local_ns, queue)
@@ -146,24 +148,36 @@ module MoSQL
         exit(0) if @done
       end)
 
-      collection.find(filter, :batch_size => BATCH) do |cursor|
-        with_retries do
-          cursor.each do |obj|
-            writers[] << @schema.transform(ns, obj)
-            schema[:related].each do |ns_scope, _|
-              @schema.transform([ns, ns_scope].join("."), obj).each do |row|
-                log.debug("Row for embedded #{row.inspect}")
-                writers[ns_scope] << row
-              end
-            end
-          end
-        end
-      end
-
       unless options[:no_drop_tables]
         writers.each_table do |table|
           @sql.db[table.to_sym].truncate
           end
+      end
+
+      collection.find(filter, :batch_size => BATCH) do |cursor|
+        with_retries do
+          cursor.each do |obj|
+            writers[] << @schema.transform(ns, obj)
+            schema[:related].each do |ns_scope, related_schema|
+              #table = ns_scope
+              #if is_embed_array = ns_scope.end_with?("[]")
+              #  table = ns_scope.slice(0...-2)
+              #end
+              log.debug("Do related row: #{ns_scope}")
+              data = @schema.transform([ns, ns_scope].join("."), obj) if obj[ns_scope]
+              if data
+                if related_schema[:meta][:embed_array]
+                  data.each do |row|
+                    log.debug("Row for embedded #{row.inspect}")
+                    writers[ns_scope] << row
+                  end
+                else
+                  writers[ns_scope] << data
+                end
+              end
+            end
+          end
+        end
       end
 
       writers.flush
