@@ -143,10 +143,12 @@ module MoSQL
               column '_extra_props', type
             end
           end
-          collection[:related].each do |reltable, details|
-            db.send(clobber ? :create_table! : :create_table?, reltable) do
-              details[:columns].each do |col|
-                column col[:name], col[:type]
+          if collection[:related]
+            collection[:related].each do |reltable, details|
+              db.send(clobber ? :create_table! : :create_table?, reltable) do
+                details[:columns].each do |col|
+                  column col[:name], col[:type]
+                end
               end
             end
           end

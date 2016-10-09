@@ -56,16 +56,20 @@ module MoSQL
       table_primary_keys.each do |key|
         query[key.to_sym] = item[key]
       end
-      rows = table.where(query).update(item)
-      if rows == 0
-        begin
-          table.insert(item)
-        rescue Sequel::DatabaseError => e
-          raise e unless self.class.duplicate_key_error?(e)
-          log.info("RACE during upsert: Upserting #{item} into #{table}: #{e}")
+      begin
+        rows = table.where(query).update(item)
+        if rows == 0
+          begin
+            table.insert(item)
+          rescue Sequel::DatabaseError => e
+            raise e unless self.class.duplicate_key_error?(e)
+            log.info("RACE during upsert: Upserting #{item} into #{table}: #{e}")
+          end
+        elsif rows > 1
+          log.warn("Huh? Updated #{rows} > 1 rows: upsert(#{table}, #{item})")
         end
-      elsif rows > 1
-        log.warn("Huh? Updated #{rows} > 1 rows: upsert(#{table}, #{item})")
+      rescue Sequel::DatabaseError => e
+        log.warn("Updating failed, skipping: #{item} into #{table}: #{e}")
       end
     end
 

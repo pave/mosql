@@ -8,8 +8,10 @@ module MoSQL
 
       add(@schema[:meta][:table])
 
-      @schema[:related].each do |table, columns|
-        add(table, table)
+      if @schema[:related]
+        @schema[:related].each do |table, columns|
+          add(table, table)
+        end
       end
     end
 

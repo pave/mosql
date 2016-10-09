@@ -156,15 +156,17 @@ module MoSQL
         with_retries do
           cursor.each do |obj|
             writers[] << @schema.transform(ns, obj)
-            schema[:related].each do |ns_scope, related_schema|
-              data = @schema.transform([ns, ns_scope].join("."), obj) if obj[ns_scope]
-              if data
-                if related_schema[:meta][:embed_array]
-                  data.each do |row|
-                    writers[ns_scope] << row
+            if schema[:related]
+              schema[:related].each do |ns_scope, related_schema|
+                data = @schema.transform([ns, ns_scope].join("."), obj) if obj[ns_scope]
+                if data
+                  if related_schema[:meta][:embed_array]
+                    data.each do |row|
+                      writers[ns_scope] << row
+                    end
+                  else
+                    writers[ns_scope] << data
                   end
-                else
-                  writers[ns_scope] << data
                 end
               end
             end
