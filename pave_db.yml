@@ -57,6 +57,11 @@ pave-dev:
           - last_four:
             :source: bank_account.last_four
             :type: CHAR(4)
+          - user_id:
+            :source: _id
+            :type: VARCHAR(24)
+        :meta:
+          :created_at: true
       education[]:
         :columns:
           - id:
@@ -71,4 +76,6 @@ pave-dev:
           - institution:
             :source: education[].institution
             :type: VARCHAR(128)
+        :meta:
+          :created_at: true
         

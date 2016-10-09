@@ -42,14 +42,15 @@ module MoSQL
       end
     end
 
-    def parse_spec(ns, spec)
+    def parse_spec(ns, spec, related='')
       log.debug {"Parse spec, #{ns}, #{spec}"}
       out = spec.dup
       out[:columns] = to_array(spec.fetch(:columns))
       check_columns!(ns, out)
-      if out[:meta] and out[:meta][:created_at]
+      out[:meta] ||= {}
+      if out[:meta][:created_at]
         out[:columns] << {
-          :source => '_id',
+          :source => [related, '_id'].join('.'),
           :type   => 'TIMESTAMP',
           :name   => 'created_at',
           :key    => false
@@ -61,12 +62,16 @@ module MoSQL
           log.debug {"Related schema, #{reltable}, #{details}"}
           #out[:related][reltable] = to_array(details)
           is_embed_array = reltable.end_with?("[]")
-          reltable = reltable.slice(0...-2) if is_embed_array
-          out[:related][reltable] = parse_spec([ns, reltable].join('.'), details)
-          out[:related][reltable][:meta] ||= {}
-          out[:related][reltable][:meta][:table] = reltable
+          table = reltable
           if is_embed_array
-            out[:related][reltable][:meta][:embed_array] = true
+            table = reltable.slice(0...-2)
+          end
+          log.debug {"tables, #{table}, #{reltable}"}
+          out[:related][table] = parse_spec(
+            [ns, table].join('.'), details, reltable)
+          out[:related][table][:meta][:table] = table
+          if is_embed_array
+            out[:related][table][:meta][:embed_array] = true
           end
         end
         #out[:related] = parse_related(spec[:related])
