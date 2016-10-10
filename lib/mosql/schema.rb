@@ -66,7 +66,7 @@ module MoSQL
           end
           out[:related][table] = parse_spec(
             [ns, table].join('.'), details, reltable)
-          out[:related][table][:meta][:table] = table
+          out[:related][table][:meta][:table] ||= table
           if is_embed_array
             out[:related][table][:meta][:embed_array] = true
           end
@@ -113,7 +113,7 @@ module MoSQL
           meta = collection[:meta]
           composite_key = meta[:composite_key]
           keys = []
-          log.info("SWANG: Creating table '#{meta[:table]}'...")
+          log.info("Creating table '#{meta[:table]}'...")
           db.send(clobber ? :create_table! : :create_table?, meta[:table]) do
             collection[:columns].each do |col|
               opts = {}
@@ -145,7 +145,8 @@ module MoSQL
           end
           if collection[:related]
             collection[:related].each do |reltable, details|
-              db.send(clobber ? :create_table! : :create_table?, reltable) do
+              log.info("Creating related table '#{details[:meta][:table]}'...")
+              db.send(clobber ? :create_table! : :create_table?, details[:meta][:table]) do
                 details[:columns].each do |col|
                   column col[:name], col[:type]
                 end
@@ -271,7 +272,12 @@ module MoSQL
         if source.start_with?("$")
           v = fetch_special_source(obj, source, original)
         else
-          v = fetch_and_delete_dotted(obj, source)
+          begin
+            v = fetch_and_delete_dotted(obj, source)
+          rescue
+            log.warn("Trasnform failed, skipping: source=#{source}, data=#{obj}")
+            return nil
+          end
           case v
           when Hash
             v = JSON.dump(Hash[v.map { |k,v| [k, transform_primitive(v)] }])

@@ -160,12 +160,13 @@ module MoSQL
               schema[:related].each do |ns_scope, related_schema|
                 data = @schema.transform([ns, ns_scope].join("."), obj) if obj[ns_scope]
                 if data
+                  table = related_schema[:meta][:table]
                   if related_schema[:meta][:embed_array]
                     data.each do |row|
-                      writers[ns_scope] << row
+                      writers[table] << row
                     end
                   else
-                    writers[ns_scope] << data
+                    writers[table] << data
                   end
                 end
               end

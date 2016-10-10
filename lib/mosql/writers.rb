@@ -9,8 +9,9 @@ module MoSQL
       add(@schema[:meta][:table])
 
       if @schema[:related]
-        @schema[:related].each do |table, columns|
-          add(table, table)
+        @schema[:related].each do |reltable, rel_schema|
+          table = rel_schema[:meta][:table]
+          add(table, reltable)
         end
       end
     end
