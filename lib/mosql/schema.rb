@@ -43,14 +43,14 @@ module MoSQL
     end
 
     def parse_spec(ns, spec, related='')
-      log.debug {"Parse spec, #{ns}, #{spec}"}
+      log.debug {"Parse spec, #{ns}, #{spec}, #{related}"}
       out = spec.dup
       out[:columns] = to_array(spec.fetch(:columns))
       check_columns!(ns, out)
       out[:meta] ||= {}
       if out[:meta][:created_at]
         out[:columns] << {
-          :source => [related, '_id'].join('.'),
+          :source => related.empty? ? '_id' : [related, '_id'].join('.'),
           :type   => 'TIMESTAMP',
           :name   => 'created_at',
           :key    => false
@@ -77,6 +77,7 @@ module MoSQL
           }
         end
       end
+      log.debug {"Parsed spec, #{ns}, #{out}, #{spec}"}
       out
     end
 
