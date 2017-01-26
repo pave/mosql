@@ -70,10 +70,16 @@ module MoSQL
           if is_embed_array
             out[:related][table][:meta][:embed_array] = true
           end
+          new_name = nil
+          if parent_table[-3..-1].downcase == 'ies'
+              new_name = parent_table[0..-4].downcase + 'y_id'
+          else
+              new_name = parent_table[0..-2].downcase + '_id'
+          end
           out[:related][table][:columns] << {
             :source => '_id',
             :type   => 'VARCHAR(24)',
-            :name   => ns.split('.')[-1].downcase+'_id',
+            :name   => new_name,
           }
         end
       end
