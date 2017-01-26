@@ -48,6 +48,7 @@ module MoSQL
       out[:columns] = to_array(spec.fetch(:columns))
       check_columns!(ns, out)
       out[:meta] ||= {}
+      parent_table = out[:meta][:table]
       if out[:meta][:created_at]
         out[:columns] << {
           :source => related.empty? ? '_id' : [related, '_id'].join('.'),
